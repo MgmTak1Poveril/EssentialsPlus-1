@@ -18,6 +18,7 @@ namespace EssentialsPlus.Db
 			ID = -1;
 
 			accountId = null;
+			accountName = null;
 			authorId = null;
 
 			ip = null;
@@ -32,6 +33,7 @@ namespace EssentialsPlus.Db
 		public int ID;
 
 		public int? accountId;
+		public string accountName;
 		public int? authorId;
 
 		public string? ip;
@@ -59,6 +61,7 @@ namespace EssentialsPlus.Db
 				new SqlColumn("ID", MySqlDbType.Int32) { AutoIncrement = true, Primary = true },
 
 				new SqlColumn("Account", MySqlDbType.Int32),
+				new SqlColumn("Nickname", MySqlDbType.String),
 				new SqlColumn("Author", MySqlDbType.Int32),
 
 				new SqlColumn("IP", MySqlDbType.Text),
@@ -75,6 +78,7 @@ namespace EssentialsPlus.Db
 			mute = new Mute(-1)
 			{
 				accountId = player.Account?.ID,
+				accountName = player.Name,
 				authorId = author.Account.ID,
 
 				ip = player.IP,
@@ -108,8 +112,8 @@ namespace EssentialsPlus.Db
 		}
 		public bool Add(Mute mute)
         {
-			return db.Query("INSERT INTO Mutes VALUES(@0, @1, @2, @3, @4, @5, @6, @7)", null,
-				mute.accountId, mute.authorId, mute.ip, mute.uuid, mute.reason, mute.date, mute.expiration) > 0;
+			return db.Query("INSERT INTO Mutes VALUES(@0, @1, @2, @3, @4, @5, @6, @7, @8)", null,
+				mute.accountId, mute.accountName, mute.authorId, mute.ip, mute.uuid, mute.reason, mute.date, mute.expiration) > 0;
 		}
 
 		public bool Remove(Mute mute)
@@ -131,15 +135,16 @@ namespace EssentialsPlus.Db
 				ID = reader.GetInt32(0),
 
 				accountId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
-				authorId = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+				accountName = reader.IsDBNull(2) ? null : reader.GetString(2),
+				authorId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
 
-				ip = reader.IsDBNull(3) ? null : reader.GetString(3),
-				uuid = reader.IsDBNull(4) ? null : reader.GetString(4),
+				ip = reader.IsDBNull(4) ? null : reader.GetString(4),
+				uuid = reader.IsDBNull(5) ? null : reader.GetString(5),
 
-				reason = reader.GetString(5),
-				date = DateTime.Parse(reader.GetString(6)),
+				reason = reader.GetString(6),
+				date = DateTime.Parse(reader.GetString(7)),
 
-				expiration = DateTime.Parse(reader.GetString(7))
+				expiration = DateTime.Parse(reader.GetString(8))
 			};
         }
 		public Mute? GetMute(int id)
@@ -154,8 +159,8 @@ namespace EssentialsPlus.Db
 
 		public IEnumerable<Mute> GetMutes(TSPlayer player)
         {
-			using (QueryResult result = db.QueryReader($"SELECT * FROM Mutes WHERE Account = @0 OR IP = @1 OR UUID = @2",
-				player.Account?.ID ?? -1, player.IP, player.UUID))
+			using (QueryResult result = db.QueryReader($"SELECT * FROM Mutes WHERE Account = @0 OR Nickname = @1 OR IP = @2 OR UUID = @3",
+				player.Account?.ID ?? -1, player.Name, player.IP, player.UUID))
 			{
 				while (result.Read())
 				{
@@ -175,25 +180,24 @@ namespace EssentialsPlus.Db
                 }
             }
 		}
-        public IEnumerable<(int ID, int Account, string Ip, string Reason, string Expiration)> GetActiveMutes()
+        public IEnumerable<(int ID, string Account, string Ip, string Reason, string Expiration)> GetActiveMutes()
         {
-            using (QueryResult result = db.QueryReader("SELECT ID, Account, IP, Reason, Expiration FROM Mutes ORDER BY ID DESC"))
+            using (QueryResult result = db.QueryReader("SELECT ID, Account, Nickname, IP, Reason, Expiration FROM Mutes ORDER BY ID DESC"))
             {
                 while (result.Read())
                 {
-                    int id = result.Get<int>("ID");
-                    int account = result.Get<int>("Account");
+                    int id = result.Get<int>("ID");//думаю можно убрать, если не понадобится
+                    string account = TShock.UserAccounts.GetUserAccountByID(result.Get<int>("Account")).Name;
 					string ip = result.Get<string>("IP");
                     string reason = result.Get<string>("Reason");
-                    string expiration = result.Get<string>("Expiration");
+                    string expiration = result.Get<string>("Expiration")[..^8];//[..^8] только для убирания милисекунд
 
                     DateTime expirationDate;
 
                     bool isActive = !string.IsNullOrEmpty(expiration) && (!DateTime.TryParse(expiration, out expirationDate) || expirationDate > DateTime.UtcNow);
-
                     if (isActive)
                     {
-                        yield return (id, account, ip, reason, expiration);//убрать айди, сделать возврат полного ника, по возможности сократить время окончания до секунд/минут
+                        yield return (id, account, ip, reason, expiration);//сделать возврат ника аккаунта, а не его айди
                     }
                 }
             }

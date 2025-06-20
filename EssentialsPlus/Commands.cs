@@ -1159,10 +1159,15 @@ namespace EssentialsPlus
                 #region Help
 
                 default:
-					e.Player.SendSuccessMessage("Mute Sub-Commands:");
-					e.Player.SendInfoMessage("add <name> [time] [reason] - Mutes a player or account.");
-					e.Player.SendInfoMessage("del <name> - Unmutes a player or account.");
-					e.Player.SendInfoMessage("list <page> - Shows active account/player mutes.");
+					if (subCmd.ToLowerInvariant() == "help")
+					{
+						e.Player.SendSuccessMessage("Mute Sub-Commands:");
+						e.Player.SendInfoMessage("add <name> [time] [reason] - Mutes a player or account.");
+						e.Player.SendInfoMessage("del <name> - Unmutes a player or account.");
+						e.Player.SendInfoMessage("list <page> - Shows active account/player mutes.");
+						return;
+					}
+					e.Player.SendErrorMessage("Invalid syntax. Try using /mute add/del/list");
 					return;
 
 				#endregion
